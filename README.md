@@ -1,8 +1,6 @@
-<center>
-    <img src="/src/logo.png">
-</center>
+<p align="center"><img src="/img/logo.png" width="70%"></p>
 
----
+#
 
 **YoctoLM** is an ultra-lightweight, high-performance, and resource-efficient Small Language Model (SLM) environment designed to run seamlessly across both **Node.js** and **Modern Web Browsers**. 
 
@@ -57,7 +55,7 @@ Just run it `/src/test.js` :
 node test.js
 ```
 
-![](../img/screenshot.gif)
+![](/img/screenshot.gif)
 
 ## 📄 Data
 In the `utils` folder you will find everything you need. We used the [dailydialog dataset](https://huggingface.co/datasets/roskoN/dailydialog) for training and added an AI-generated dataset to train the model on it. In total 90,000 question, So .. How to add a new data ?
