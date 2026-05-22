@@ -1,4 +1,12 @@
-<p align="center"><img src="/img/logo.png" width="70%"></p>
+<p align="center">
+  <img src="/img/logo.png" width="70%">
+  <br>
+  <img src="https://img.shields.io/github/v/release/mohdmot/YoctoLM?color=33b3ae&style=flat-square" alt="GitHub Release">
+  <img src="https://img.shields.io/github/stars/mohdmot/YoctoLM?style=flat-square" alt="GitHub Stars">
+  <img src="https://img.shields.io/badge/platform-Browser-lightgrey?logo=javascript&style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/size-sub--nano-brightgreen?style=flat-square" alt="Size">
+
+</p>
 
 #
 
