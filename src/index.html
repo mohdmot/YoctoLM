@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YoctoLM Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* True Neutral Dark Theme (No blue tints) */
+            --bg-main: #121212;
+            --bg-sidebar: #1a1a1a;
+            --bg-chat: #141414;
+            --bg-bubble-user: #e4e4e7;
+            --text-bubble-user: #09090b;
+            --bg-bubble-ai: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border-color: #27272a;
+            --accent-color: #fafafa;
+            --input-bg: #1f1f23;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            --logo-filter: brightness(0) invert(1); /* Turns black logo into clean white */
+        }
+
+        [data-theme="light"] {
+            /* Clean Light Theme */
+            --bg-main: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --bg-chat: #ffffff;
+            --bg-bubble-user: #18181b;
+            --text-bubble-user: #ffffff;
+            --bg-bubble-ai: #f4f4f5;
+            --text-main: #09090b;
+            --text-muted: #71717a;
+            --border-color: #e4e4e7;
+            --accent-color: #18181b;
+            --input-bg: #f4f4f5;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            --logo-filter: none; /* Keeps original black logo */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease, opacity 0.3s ease;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* Main Workspace Layout */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 100%;
+            background-color: var(--bg-chat);
+            position: relative;
+        }
+
+        /* Top Header Navigation */
+        .top-navbar {
+            height: 60px;
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 10;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-logo {
+            height: 28px;
+            width: auto;
+            object-fit: contain;
+            filter: var(--logo-filter);
+        }
+
+        .controls-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .btn-icon {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            background-color: var(--input-bg);
+        }
+
+        /* Settings Panel Content Block */
+        .settings-panel {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background-color: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            width: 260px;
+            box-shadow: var(--shadow);
+            z-index: 50;
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        .setting-row {
+            margin-bottom: 1.25rem;
+        }
+
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+        }
+
+        .slider-input {
+            width: 100%;
+            accent-color: var(--text-main);
+            cursor: pointer;
+        }
+
+        .theme-switch-group {
+            display: flex;
+            background-color: var(--bg-main);
+            border-radius: 8px;
+            padding: 0.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .theme-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.4rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .theme-btn.active {
+            background-color: var(--bg-bubble-ai);
+            color: var(--text-main);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Chat Container Viewport */
+        .chat-viewport {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: relative;
+        }
+
+        /* Training Overlay Inside Chat Container */
+        #training-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            padding: 2rem;
+            border-radius: 16px;
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            max-width: 350px;
+            width: 90%;
+            z-index: 5;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--text-main);
+            border-radius: 50%;
+            margin: 0 auto 1.25rem auto;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Chat Message Stream Rows */
+        .message-row {
+            display: flex;
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+            animation: slideUp 0.25s ease-out;
+        }
+
+        .message-row.user { justify-content: flex-end; }
+        .message-row.ai { justify-content: flex-start; }
+
+        .bubble {
+            max-width: 80%;
+            padding: 0.85rem 1.15rem;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .message-row.user .bubble {
+            background-color: var(--bg-bubble-user);
+            color: var(--text-bubble-user);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-row.ai .bubble {
+            background-color: var(--bg-bubble-ai);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Message Action Trays and Metadata */
+        .bubble-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            padding-top: 0.4rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .message-row.user .bubble-meta {
+            border-top-color: rgba(0, 0, 0, 0.08);
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        [data-theme="dark"] .message-row.user .bubble-meta {
+            border-top-color: rgba(255, 255, 255, 0.1);
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .action-icon-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* AI Typing/Thinking Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 0;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: wave 1.3s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+        /* Bottom Flat Input Bar */
+        .input-bar-container {
+            background-color: transparent;
+            padding: 0 1rem 1.5rem 1rem;
+        }
+
+        .input-wrapper {
+            max-width: 760px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 26px; /* Fully rounded elegant pill form */
+            padding: 4px 6px 4px 1.25rem;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--text-muted);
+        }
+
+        .text-input {
+            flex: 1;
+            background: none;
+            border: none;
+            outline: none;
+            padding: 0.75rem 0;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            resize: none;
+            max-height: 150px;
+            height: 40px;
+            overflow-y: hidden; /* Prevent native scrollbars */
+        }
+
+        /* Completely Hides Scrollbars and Sliding Elements on input */
+        .text-input::-webkit-scrollbar {
+            display: none;
+        }
+        .text-input {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Flat Clean Send Button integrated natively */
+        .btn-send {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .btn-send:hover:not(:disabled) {
+            color: var(--text-main);
+            background-color: var(--bg-sidebar);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        /* Animations */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes wave { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+
+        .hidden { display: none !important; }
+        .invisible { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="workspace">
+            
+            <header class="top-navbar">
+                <div class="brand-section">
+                    <img src="logo.png" alt="YoctoLM" class="brand-logo" onerror="this.style.display='none'">
+                </div>
+                <div class="controls-section">
+                    <button class="btn-icon" id="settings-toggle-btn" aria-label="Toggle Settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </button>
+                    
+                    <div class="settings-panel" id="settings-menu-panel">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span>Temperature</span>
+                                <span id="temp-value-label">0.2</span>
+                            </div>
+                            <input type="range" class="slider-input" id="temperature-slider" min="0.1" max="1.5" step="0.1" value="0.2">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label"><span>Theme Mode</span></div>
+                            <div class="theme-switch-group">
+                                <button class="theme-btn active" data-mode="dark">Dark</button>
+                                <button class="theme-btn" data-mode="light">Light</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="chat-viewport" id="chat-messages-container">
+                <div id="training-container">
+                    <div class="spinner"></div>
+                    <h4 style="margin-bottom: 0.25rem; font-weight: 500;">Training YoctoLM...</h4>
+                    <p style="color: var(--text-muted); font-size: 0.8rem;">Please wait a few moments.</p>
+                </div>
+            </main>
+
+            <footer class="input-bar-container invisible" id="bottom-controls-bar">
+                <div class="input-wrapper">
+                    <textarea class="text-input" id="prompt-input-field" placeholder="Message YoctoLM..." rows="1"></textarea>
+                    <button class="btn-send" id="send-action-btn" aria-label="Send Message" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </footer>
+
+        </div>
+    </div>
+
+    <script type="module">
+        import { YoctoLM } from './yoctolm.js';
+        import { loadTrainingData } from './data.js';
+
+        const trainingContainer = document.getElementById('training-container');
+        const bottomControlsBar = document.getElementById('bottom-controls-bar');
+        const chatMessagesContainer = document.getElementById('chat-messages-container');
+        const promptInputField = document.getElementById('prompt-input-field');
+        const sendActionBtn = document.getElementById('send-action-btn');
+        const settingsToggleBtn = document.getElementById('settings-toggle-btn');
+        const settingsMenuPanel = document.getElementById('settings-menu-panel');
+        const temperatureSlider = document.getElementById('temperature-slider');
+        const tempValueLabel = document.getElementById('temp-value-label');
+        const themeButtons = document.querySelectorAll('.theme-btn');
+
+        let yoctoInstance = null;
+        let isModelThinking = false;
+
+        async function bootModelPipeline() {
+            try {
+                let trainingData = await loadTrainingData('training_data.json');
+                yoctoInstance = new YoctoLM();
+                
+                // Default temperature assigned to 0.3
+                yoctoInstance.temperature = parseFloat(temperatureSlider.value);
+
+                let start_training = new Date();
+                yoctoInstance.train(trainingData);
+                let end_training = new Date();
+                console.log(`[INFO] Training completed in ${(end_training - start_training) / 1000} seconds.`);
+
+                // Smoothly dismiss the loading box and bring up input fields
+                trainingContainer.style.opacity = '0';
+                setTimeout(() => {
+                    trainingContainer.remove();
+                    bottomControlsBar.classList.remove('invisible');
+                    appendMessageNode("Hello! The model has finished training. How can I help you today?", 'ai');
+                    promptInputField.focus();
+                }, 300);
+
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                trainingContainer.innerHTML = '<h4 style="color: #ef4444;">Training failed to initialize.</h4>';
+            }
+        }
+
+        async function executePromptDispatch() {
+            const rawText = promptInputField.value.trim();
+            if(!rawText || isModelThinking) return;
+
+            isModelThinking = true;
+            promptInputField.value = '';
+            promptInputField.style.height = '40px'; 
+            sendActionBtn.disabled = true;
+
+            appendMessageNode(rawText, 'user');
+            scrollToBottom();
+
+            const parsingRowNode = appendLoadingIndicatorNode();
+            scrollToBottom();
+
+            setTimeout(async () => {
+                try {
+                    let start_generation = new Date();
+                    let aiResponseOutput = yoctoInstance.generate(rawText, 1000);
+                    let end_generation = new Date();
+                    
+                    let generationMetricsDelta = ((end_generation - start_generation) / 1000).toFixed(3);
+                    
+                    parsingRowNode.remove();
+                    await appendAIResponseWithTypewriter(aiResponseOutput, generationMetricsDelta);
+
+                } catch (err) {
+                    console.error("Generation failed:", err);
+                    parsingRowNode.remove();
+                    appendMessageNode("An error occurred during text generation.", 'ai');
+                } finally {
+                    isModelThinking = false;
+                    toggleSendButtonState();
+                    promptInputField.focus();
+                }
+            }, 50);
+        }
+
+        function appendMessageNode(text, sender) {
+            const row = document.createElement('div');
+            row.className = `message-row ${sender}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.textContent = text;
+            
+            row.appendChild(bubble);
+            chatMessagesContainer.appendChild(row);
+            return row;
+        }
+
+        function appendLoadingIndicatorNode() {
+            const row = document.createElement('div');
+            row.className = 'message-row ai';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+            
+            bubble.appendChild(indicator);
+            row.appendChild(bubble);
+            chatMessagesContainer.appendChild(row);
+            return row;
+        }
+
+        function appendAIResponseWithTypewriter(fullResponseText, timingMetric) {
+            return new Promise((resolve) => {
+                const row = document.createElement('div');
+                row.className = 'message-row ai';
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                
+                const textContainer = document.createElement('span');
+                bubble.appendChild(textContainer);
+                row.appendChild(bubble);
+                chatMessagesContainer.appendChild(row);
+
+                let charIndex = 0;
+                const writingSpeedMs = 10; 
+
+                function type() {
+                    if (charIndex < fullResponseText.length) {
+                        textContainer.textContent += fullResponseText.charAt(charIndex);
+                        charIndex++;
+                        scrollToBottom();
+                        setTimeout(type, writingSpeedMs);
+                    } else {
+                        injectMetaControlsBar(bubble, fullResponseText, timingMetric);
+                        resolve();
+                    }
+                }
+                type();
+            });
+        }
+
+        function injectMetaControlsBar(targetBubbleNode, sourceTextContent, durationMetric) {
+            const metaContainer = document.createElement('div');
+            metaContainer.className = 'bubble-meta';
+            
+            const metricStamp = document.createElement('span');
+            metricStamp.textContent = `${durationMetric}s`;
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'action-icon-btn';
+            copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy';
+            
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(sourceTextContent).then(() => {
+                    copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy';
+                    }, 2000);
+                });
+            });
+
+            metaContainer.appendChild(metricStamp);
+            metaContainer.appendChild(copyBtn);
+            targetBubbleNode.appendChild(metaContainer);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+        }
+
+        function toggleSendButtonState() {
+            const hasContent = promptInputField.value.trim().length > 0;
+            sendActionBtn.disabled = !hasContent || isModelThinking;
+        }
+
+        // Event Listeners
+        sendActionBtn.addEventListener('click', executePromptDispatch);
+
+        promptInputField.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                executePromptDispatch();
+            }
+        });
+
+        promptInputField.addEventListener('input', function() {
+            this.style.height = 'auto';
+            const nextHeight = Math.min(this.scrollHeight, 150);
+            this.style.height = nextHeight + 'px';
+            toggleSendButtonState();
+        });
+
+        settingsToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenuPanel.classList.toggle('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            if(!settingsMenuPanel.contains(e.target) && e.target !== settingsToggleBtn) {
+                settingsMenuPanel.classList.remove('active');
+            }
+        });
+
+        temperatureSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            tempValueLabel.textContent = val.toFixed(1);
+            if(yoctoInstance) {
+                yoctoInstance.temperature = val;
+            }
+        });
+
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                themeButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const targetThemeMode = this.getAttribute('data-mode');
+                document.documentElement.setAttribute('data-theme', targetThemeMode);
+            });
+        });
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', bootModelPipeline);
+    </script>
+</body>
+</html>
