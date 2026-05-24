@@ -63,6 +63,27 @@ Just run it `/src/test.js` :
 node test.js
 ```
 
+### 3. Use it inside your project
+```js
+import { YoctoLM } from './yoctolm.js';
+import { loadTrainingData } from './data.js';
+
+let trainingData = await loadTrainingData('training_data.json');
+
+let yocto = new YoctoLM();
+//yocto.temperature = 0.1;
+
+yocto.train(trainingData);
+
+const prompt = "hi, what is your name?"; 
+
+let output = yocto.generate(prompt,1000)
+
+console.log(output);
+
+```
+
+
 ![](/img/screenshot.gif)
 
 ## 📄 Data
@@ -93,7 +114,7 @@ Now we need to convert it into a JSON file containing all the questions and answ
 ```
 Add your generated data to a text file in the `utils` folder, then add it to the datasets list in `prepare_data.py` :
 ```
-datasets_files = ['ai_generated.txt','dialogues_train.txt', 'dialogues_test.txt', 'dialogues_validation.txt']
+datasets_files = ['dialogues_train.txt', 'dialogues_test.txt', 'dialogues_validation.txt','ai_generated.txt']
 data_n = 1500000000 # All avaliable question 
 ```
 Now you have `training_data.json`, move it to the required location.

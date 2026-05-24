@@ -28,11 +28,15 @@ export class YoctoLM {
         }
         let text = tokens.join(' ');
         text = text.replace(/\s+([.,!?;:])/g, '$1');
-        text = text.replace(/\s+(’)\s+/g, '$1');
+        
         text = text.replace(/"\s+([^"]+)\s+"/g, '"$1"');
         text = text.replace(/'\s+([^']+)\s+'/g, "'$1'");
         text = text.replace(/'\s+([^']+)\s+'/g, "'$1'");
         text = text.replace(/\s+-\s+/g, '-');
+        text = text.replace(/\s+(’)\s+/g, '$1');
+        text = text.replace(/\s+(')\s+/g, '$1');
+        text = text.replace(/yoctolm/gi, 'YoctoLM');
+        text = text.replace(' <|end|>', '');
         return text;
     }
 
@@ -42,14 +46,13 @@ export class YoctoLM {
             let qTokens = this.cleanText(pair.q).map(w => this.tokenizer.tokenize(w));
             let aTokens = this.cleanText(pair.a).map(w => this.tokenizer.tokenize(w));
 
-            // 1. Save the tokenized Q&A pair in the knowledge base for intent matching during generation
-            this.knowledgeBase.push({ q: qTokens, a: aTokens });
-
-            // 2. Train the n-gram model on the answer tokens
-            // clean <|end|> tokens from the answer to avoid pollution of the n-grams
             let endToken = this.tokenizer.tokenize('<|end|>');
             let sequence = [...aTokens, endToken];
 
+            // 1. Save the tokenized Q&A pair in the knowledge base for intent matching during generation
+            this.knowledgeBase.push({ q: qTokens, a: sequence });
+
+            // 2. Train the n-gram model on the answer tokens (including the end token)
             for (let i = 0; i <= sequence.length - this.contextWindow; i++) {
 
                 let contextKey = sequence.slice(i, i + this.contextWindow).join(',');
@@ -74,23 +77,36 @@ export class YoctoLM {
     generate(prompt, maxLength = 50) {
         this.tokenizer.mode = 'generate';
         let promptTokens = this.cleanText(prompt).map(w => this.tokenizer.tokenize(w));
-        
-        let bestMatch = null;
-        let highestScore = -1;
 
-        this.knowledgeBase.forEach(kb => {
+        let best_similarity = {}
+        this.knowledgeBase.forEach( kb => {
             let score = advancedSimilarity(this.tokenizer, promptTokens, kb.q);
-            if (score > highestScore) {
-                highestScore = score;
-                bestMatch = kb;
-            }
+            best_similarity[score] = kb;
         });
 
-        console.log(`[DEBUG] Best match score: ${highestScore}`);
-        console.log(`[DEBUG] Best match question: ${bestMatch ? bestMatch.q.map(t => this.tokenizer.detokenize([t])).join(' ') : 'None'}`);
-        console.log(`[DEBUG] Best match answer: ${bestMatch ? bestMatch.a.map(t => this.tokenizer.detokenize([t])).join(' ') : 'None'}`);
+        let best3 = Object.keys(best_similarity).sort((a,b) => b - a).slice(0,3);
+        
+        console.log(`\n[DEBUG] Top 3 similarity scores: ${best3.join(', ')}`);
+        for (let score of best3) {
+            let kb = best_similarity[score];
+            console.log(`[DEBUG] Similarity score: ${score}`);
+            console.log(`[DEBUG] Matched question: ${kb.q.map(t => this.tokenizer.detokenize([t])).join(' ')} : ${kb.a.map(t => this.tokenizer.detokenize([t])).join(' ')}`);
+        }
 
-        if (highestScore < 0.15) {bestMatch = null;}
+        let bestWeightedTokens = {} // {tokenId: weightedScore, ...}
+        for (let score of best3) {
+            let kb = best_similarity[score];
+            kb.a.forEach(token => {
+                if (!bestWeightedTokens[token]) {
+                    bestWeightedTokens[token] = 0;
+                }
+                bestWeightedTokens[token] += Number(score);
+            });
+        }
+        let bestMatch = best_similarity[best3[0]];
+        let highestScore = Number(best3[0]);
+
+        if (highestScore < 0.135) {bestMatch = null;}
 
         let outputTokens;
         if (!bestMatch) {
@@ -104,19 +120,9 @@ export class YoctoLM {
             // possibilities = {nextTokenId: count, nextTokenId2: count2, ...}
             let possibilities = {}
             
+            
             if (this.ngrams[currentContext]) {
-                // Way 1: Take the exact context (if it exists)
                 possibilities = this.ngrams[currentContext];
-                
-                // Way 2:
-                /*let best_similarity = {}
-                for (let [key,value] of Object.entries(this.ngrams)) {
-                    key = key.split(',');
-                    let score = advancedSimilarity(this.tokenizer, currentContext.split(','), key);
-                    if (Object.values(best_similarity).every(v => (score >= v))) {
-                        best_similarity[key.join(',')] = score;
-                    }
-                }*/
             }else{
                 let newContextWindow = Math.max(this.minContextWindow, this.contextWindow - 1);
                 for (let j = newContextWindow; j >= this.minContextWindow; j--) {
@@ -130,9 +136,18 @@ export class YoctoLM {
                 }
             }
 
+            function possibilitiesToString(poss,tokenizer) {
+                let result = {};
+                Object.entries(poss).forEach(([key, value]) => {
+                    result[ tokenizer.detokenize(key) ] = value;
+                });
+                return result;
+            }
+            console.log(`[DEBUG] possibilities: ${JSON.stringify(possibilitiesToString(possibilities, this.tokenizer))}...`);
+
             if (!possibilities || Object.keys(possibilities).length === 0) break;
 
-            let nextTokenId = Number(pickToken(possibilities, this.temperature));
+            let nextTokenId = Number(pickToken(possibilities, this.temperature, bestWeightedTokens));
 
             let nextWord = this.tokenizer.detokenize(nextTokenId);
             if (nextWord === '<|end|>') break;
